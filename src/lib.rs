@@ -9,7 +9,7 @@ pub fn tone_up(data: &mut [f32], rate: u32, window: usize, tone: usize) -> Vec<f
     let mut planner = RealFftPlanner::<f32>::new();
     let mut output = vec![];
     for data_clip in data.chunks_mut(window) {
-        let freq = rate as f32 / data_clip.len() as f32;
+        let freq = (rate as f32 / 2.) / data_clip.len() as f32;
         let data_up = tone_up_inner(&mut planner, data_clip, freq, tone);
         output.extend(data_up);
     }
@@ -54,7 +54,7 @@ pub fn tone_down(data: &mut [f32], rate: u32, window: usize, tone: usize) -> Vec
     let mut planner = RealFftPlanner::<f32>::new();
     let mut output = vec![];
     for data_clip in data.chunks_mut(window) {
-        let freq = rate as f32 / data_clip.len() as f32;
+        let freq = (rate as f32 / 2.) / data_clip.len() as f32;
         let data_up = tone_down_inner(&mut planner, data_clip, freq, tone);
         output.extend(data_up);
     }
