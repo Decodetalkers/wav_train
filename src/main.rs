@@ -36,6 +36,7 @@ fn tone_up_one(planner: &mut RealFftPlanner<f32>, data: &mut [f32], freq_step: f
         spectrum.pop();
         shift -= 1;
     }
+    spectrum.last_mut().unwrap().im = 0.;
     let ifft = planner.plan_fft_inverse(data.len());
     let mut output = ifft.make_output_vec();
     ifft.process(&mut spectrum, &mut output).unwrap();
@@ -51,30 +52,15 @@ fn main() -> hound::Result<()> {
         spec.sample_rate, spec.channels, spec.sample_format
     );
 
-    let mut planner: RealFftPlanner<f32> = RealFftPlanner::new();
+    let mut samples: Vec<f32> = reader.samples::<i16>().map(|s| s.unwrap() as f32).collect();
 
-    let samples: Vec<i16> = reader.samples::<i16>().map(|s| s.unwrap()).collect();
-    let mut samples: Vec<f32> = samples[0..256].iter().map(|s| *s as f32).collect();
-    //println!("original samples = {samples:?}");
-    let fft = planner.plan_fft_forward(samples.len());
-    let mut spectrum = fft.make_output_vec();
+    let tone_up = tone_up_one_all(&mut samples, spec.sample_rate, 240);
 
-    println!("samples len: {}", samples.len());
-    fft.process(&mut samples, &mut spectrum).unwrap();
-
-    let norm_data: Vec<f32> = spectrum.iter().map(|a| a.norm()).collect();
-    println!("after fft len: {}", norm_data.len());
-
-    let ifft = planner.plan_fft_inverse(samples.len());
-    let mut data_i = ifft.make_output_vec();
-
-    let n = data_i.len() as f32;
-
-    ifft.process(&mut spectrum, &mut data_i).unwrap();
-
-    let data_r: Vec<f32> = data_i.iter().map(|s| *s / n).collect();
-    println!("use ifft to return it: {}", data_r.len());
-
+    let mut writer = hound::WavWriter::create("./output.wav", spec)?;
+    for data in tone_up {
+        writer.write_sample(data as i16)?;
+    }
+    writer.finalize()?;
     // What the fuck why they are different so much!
 
     Ok(())
