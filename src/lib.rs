@@ -5,14 +5,52 @@ use realfft::RealFftPlanner;
 // DOCUMENT: https://en.wikipedia.org/wiki/Piano_key_frequencies
 static STEP_LOG2: LazyLock<f32> = LazyLock::new(|| 1. / 12.);
 
-pub fn pitch_shift(data: &mut [f32], window: usize, shift: i32) -> Vec<f32> {
-    let mut planner = RealFftPlanner::<f32>::new();
-    let mut output = vec![];
-    for data_clip in data.chunks_mut(window) {
-        let data_up = shift_inner(&mut planner, data_clip, shift);
-        output.extend(data_up);
+#[derive(Debug)]
+pub struct PitchShiftPlan {
+    window: usize,
+    hann_window: bool,
+}
+
+impl PitchShiftPlan {
+    pub fn new(window: usize) -> Self {
+        Self {
+            window,
+            hann_window: false,
+        }
     }
-    output
+    pub fn hann_window(self) -> Self {
+        Self {
+            hann_window: true,
+            ..self
+        }
+    }
+
+    pub fn shift(&self, samples: &mut [f32], shift: i32) -> Vec<f32> {
+        let mut planner = RealFftPlanner::<f32>::new();
+        let mut output = vec![];
+        for data_clip in samples.chunks_mut(self.window) {
+            let data_up = if !self.hann_window {
+                shift_inner(&mut planner, data_clip, shift)
+            } else {
+                let mut window_data = hann_window(data_clip);
+                shift_inner(&mut planner, &mut window_data, shift)
+            };
+            output.extend(data_up);
+        }
+        output
+    }
+}
+
+fn hann_window(samples: &[f32]) -> Vec<f32> {
+    let mut windowed_samples = Vec::with_capacity(samples.len());
+    let samples_len = samples.len() as f32;
+    for (i, sample) in samples.iter().enumerate() {
+        let two_pi_i = 2.0 * std::f32::consts::PI * i as f32;
+        let idontknowthename = (two_pi_i / samples_len).cos();
+        let multiplier = 0.5 * (1.0 - idontknowthename);
+        windowed_samples.push(sample * multiplier)
+    }
+    windowed_samples
 }
 
 fn shift_inner(planner: &mut RealFftPlanner<f32>, data: &mut [f32], shift: i32) -> Vec<f32> {
@@ -31,7 +69,7 @@ fn shift_inner(planner: &mut RealFftPlanner<f32>, data: &mut [f32], shift: i32) 
         spectrum_up[shift_index] += complex;
     }
 
-    spectrum_up.last_mut().unwrap().im = 0.;
+    spectrum_up[spectrum.len() - 1].im = 0.;
     spectrum_up[0].im = 0.;
     let ifft = planner.plan_fft_inverse(data.len());
     let mut output = ifft.make_output_vec();

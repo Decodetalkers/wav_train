@@ -10,7 +10,8 @@ fn main() -> hound::Result<()> {
 
     let mut samples: Vec<f32> = reader.samples::<i16>().map(|s| s.unwrap() as f32).collect();
 
-    let tone_up = pitch_shift(&mut samples, 1024, -1);
+    let plan = PitchShiftPlan::new(256);
+    let tone_up = plan.shift(&mut samples, 0);
 
     let mut writer = hound::WavWriter::create("./output.wav", spec)?;
     for data in tone_up {
