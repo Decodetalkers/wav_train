@@ -5,7 +5,7 @@ use realfft::RealFftPlanner;
 // DOCUMENT: https://en.wikipedia.org/wiki/Piano_key_frequencies
 static STEP_LOG2: LazyLock<f32> = LazyLock::new(|| 1. / 12.);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct PitchShiftPlan {
     window_size: usize,
     window_fn: WindowFn,
