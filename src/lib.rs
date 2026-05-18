@@ -7,33 +7,38 @@ static STEP_LOG2: LazyLock<f32> = LazyLock::new(|| 1. / 12.);
 
 #[derive(Debug)]
 pub struct PitchShiftPlan {
-    window: usize,
-    hann_window: bool,
+    window_size: usize,
+    window_fn: WindowFn,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum WindowFn {
+    Hann,
+    #[default]
+    None,
 }
 
 impl PitchShiftPlan {
-    pub fn new(window: usize) -> Self {
+    pub fn new(window_size: usize) -> Self {
         Self {
-            window,
-            hann_window: false,
+            window_size,
+            window_fn: WindowFn::None,
         }
     }
-    pub fn hann_window(self) -> Self {
-        Self {
-            hann_window: true,
-            ..self
-        }
+    pub fn with_windowfn(self, window_fn: WindowFn) -> Self {
+        Self { window_fn, ..self }
     }
 
     pub fn shift(&self, samples: &mut [f32], shift: i32) -> Vec<f32> {
         let mut planner = RealFftPlanner::<f32>::new();
         let mut output = vec![];
-        for data_clip in samples.chunks_mut(self.window) {
-            let data_up = if !self.hann_window {
-                shift_inner(&mut planner, data_clip, shift)
-            } else {
-                let mut window_data = hann_window(data_clip);
-                shift_inner(&mut planner, &mut window_data, shift)
+        for data_clip in samples.chunks_mut(self.window_size) {
+            let data_up = match self.window_fn {
+                WindowFn::None => shift_inner(&mut planner, data_clip, shift),
+                WindowFn::Hann => {
+                    let mut window_data = hann_window(data_clip);
+                    shift_inner(&mut planner, &mut window_data, shift)
+                }
             };
             output.extend(data_up);
         }
